@@ -1,8 +1,8 @@
 # Wall Attention
-Read our blogpost [Wall Attention: Diagonal Gates for Softmax Attention
-]([url](https://blog.tilderesearch.com/blog/wall-attn))
-
 Wall Attention is an attention variant with a **per-channel, per-timestep multiplicative decay** baked into the QK inner product. Where standard attention scores a pair $(i, j)$ with $\sum_n q_{i,n}\, k_{j,n}$, Wall Attention weights each channel $n$ by a learned decay accumulated between the two positions. This gives each query channel an independent, content-dependent forgetting rate, generalizing scalar gating (FoX) and RoPE-style decays to the full channel dimension. Setting $g = 0$ recovers vanilla softmax attention.
+
+See the blog for more information: 
+https://blog.tilderesearch.com/blog/wall-attn  
 
 This repo packages the two kernels used in practice, each on its own:
 
