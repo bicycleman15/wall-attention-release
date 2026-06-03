@@ -933,7 +933,9 @@ class WallParallelAttentionFunction(torch.autograd.Function):
                 f"P abs max={P.abs().max()}, lse finite={torch.isfinite(lse).all()}"
             )
 
-        dg = chunk_global_cumsum(dP, cu_seqlens=ctx.cu_seqlens, reverse=True)
+        # The kernel emits dP with an LN2 factor (b_dg = LN2 * q * dq); the forward set
+        # P = cumsum(g) * RCP_LN2, so dL/dg = RCP_LN2 * reverse_cumsum(dP) (nets the LN2).
+        dg = chunk_global_cumsum(dP, cu_seqlens=ctx.cu_seqlens, reverse=True, scale=RCP_LN2)
         if _DEBUG_ASSERTS:
             assert torch.isfinite(dg).all(), (
                 f"[wall-attn bwd] NaN/Inf in dg (after rev cumsum): dg abs max={dg.abs().max()}, "
@@ -941,6 +943,8 @@ class WallParallelAttentionFunction(torch.autograd.Function):
             )
 
         if dc is not None:
+            # Unlike dP, the scalar dc is accumulated directly from the score gradient
+            # (no LN2 factor in the kernel), so it already equals dL/d(cumsum(g_scalar)).
             dg_scalar = chunk_global_cumsum(dc, cu_seqlens=ctx.cu_seqlens, reverse=True)
         else:
             dg_scalar = None
@@ -983,6 +987,8 @@ def wall_attn(
     """
     if scale is None:
         scale = k.shape[-1] ** -0.5
+    if g_scalar is not None and g_scalar.shape != q.shape[:-1]:
+        raise ValueError(f"`g_scalar` must be [B, T, HQ] matching q.shape[:-1]; got {g_scalar.shape}")
     if cu_seqlens is not None and q.shape[0] != 1:
         raise ValueError("`cu_seqlens` (varlen) requires batch size 1")
     if sink_bias is not None and sink_bias.shape != (q.shape[2],):
