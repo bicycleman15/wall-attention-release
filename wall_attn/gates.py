@@ -12,10 +12,8 @@ def soft_clamp_log_gates(log_gates: torch.Tensor, g_max: float = 0.86) -> torch.
     Inputs must be log-retentions (<= 0), not logits!
 
     Follows Wall Attention blog post (https://blog.tilderesearch.com/blog/wall-attn).
-    
-    The blog derives a 0.87 per-token log-gate bound from the fp32 exponent of a 64-token tile (64 * 0.87 * log2(e) ~= 80 < 110 clamp).
-    
-    The default is 0.86 to be safe.
+    Appendix G derives g_max < 0.87 (B_T=128, B_S=64).
+    We keep the default g_max as 0.86 to be safe.
     """
     if not math.isfinite(g_max) or g_max <= 0:
         raise ValueError("g_max must be finite and positive")
